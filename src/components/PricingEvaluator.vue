@@ -60,10 +60,14 @@
 
   <div class="backcolor">
     <b-container>
+      <div class="botpadding">
       <h4 class="withpadding">Result</h4>
       <hr color="white">
+      <div v-show="isResultComputed">
       <p>New price with MS-Stream: {{ourPricePerMonths}} €/months</p>
       <p>Estimated gain: {{estimatedGain}} % of your current video streaming cost</p>
+      </div>
+      </div>
     </b-container>
   </div>
   <div class="bottom-footer">
@@ -138,7 +142,7 @@ export default {
       var bandwidth;
       var currentPrice;
       var ourPrice = 0;
-      var marginMultiplicator = 1;
+      var marginMultiplicator = 3;
       var meanTimeinSeconds = this.input.videoMeanTime * 60;
       var storage_needed = 0; //kB
       var meanBandwidthPerVideo; //kbps
@@ -182,15 +186,19 @@ export default {
       }
 
       //Get our price = Quantité qui sort par mois ramené au prix OVH + Storage
-      ourPrice = Math.ceil(dataPerSeconds * this.currentCDNInfos.OVH.bandwidthPerMbps/44)*44;
+      ourPrice = Math.ceil(dataPerSeconds * this.currentCDNInfos.OVH.bandwidthPerMbps/44)*44 + 44;
 
       // Update result
       ourPrice = ourPrice * marginMultiplicator;
+      if (ourPrice > currentPrice) {
+        ourPrice = currentPrice - 2;
+      }
       this.ourPricePerMonths = ourPrice;
       this.estimatedGain = this.computeGain(currentPrice, ourPrice);
+      this.isResultComputed = true;
     },
   computeGain: function(currentPrice, ourPrice) {
-      return Math.round(currentPrice - ourPrice / currentPrice);
+      return Math.round((currentPrice - ourPrice) / currentPrice * 100);
   }
 
   }
@@ -203,7 +211,6 @@ export default {
   margin-top: 3vh;
   background-color: #0f182f;
   color: rgb(243, 243, 243);
-  padding-bottom: 20vh;
 }
 .bottom-footer {
   margin-top: 1vh;
@@ -211,6 +218,9 @@ export default {
 }
 .withpadding {
   padding-top: 2vh;
+}
+.botpadding {
+  padding-bottom: 15vh;
 }
 .btn-msstream {
   color: white;
