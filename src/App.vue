@@ -42,7 +42,7 @@ export default {
 #jumbotron.jumbotron {
     position: relative;
     padding-bottom: 30vh;
-    margin-bottom: 5px;
+    margin-bottom: 3vh;
     color: white;
     background-color: transparent;
 }

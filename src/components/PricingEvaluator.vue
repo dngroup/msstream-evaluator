@@ -4,6 +4,7 @@
       <h4>Please provide some informations on your needs</h4>
       <hr color="black">
       <b-form @submit="priceComputation">
+        <b-card>
         <b-form-group id="exampleInputGroup1"
                       label="Number of Videos"
                       label-for="exampleInput1">
@@ -43,7 +44,9 @@
                         placeholder="Enter the price of your current video streaming system in €/month">
           </b-form-input>
         </b-form-group>
-                <b-form-group id="exampleInputGroup3"
+        </b-card>
+        <b-card v-show="showAdvancedOptions">
+          <b-form-group id="exampleInputGroup3"
                       label="Video data consumption per day *"
                       label-for="exampleInput3">
           <b-form-input id="exampleInput3"
@@ -51,8 +54,32 @@
                         v-model="input.videoDataConsumptionPerDay"
                         placeholder="Enter video data consumption per day">
           </b-form-input>
+          </b-form-group>
+          <b-form-group
+                      label="CDN currently used *">
+          <b-form-select v-model="input.cdnUsed" :options="cdnOptions" />
         </b-form-group>
+                  <b-form-group id="exampleInputGroup7"
+                      label="Location *"
+                      label-for="exampleInput7">
+          <b-form-input id="exampleInput7"
+                        type="text"
+                        v-model="input.location"
+                        placeholder="Enter the country of your system">
+          </b-form-input>
+        </b-form-group>
+                  <b-form-group id="exampleInputGroup8"
+                      label="Storage needed in GB *"
+                      label-for="exampleInput8">
+          <b-form-input id="exampleInput8"
+                        type="number"
+                        v-model="input.storageNeeded"
+                        placeholder="Enter storage needed in GB">
+          </b-form-input>
+        </b-form-group>
+        </b-card>
         <b-button type="submit" variant="primary">Submit</b-button>
+        <b-button variant="warning" v-on:click="advancedOptions">Show advanced options</b-button>
       </b-form>
       <p style="margin-top: 1vh;font-size: 0.85em;">* Optionnal.</p>
       <p style="margin-top: -13px;font-size: 0.85em;">** If you don't provide a price, it will be estimated using standard CDN pricing, in order to compute an estimated gain.</p>
@@ -82,24 +109,30 @@
 
 <script>
 export default {
-  name: 'PricingEvaluator',
-  data () {
+  name: "PricingEvaluator",
+  data() {
     return {
+      showAdvancedOptions: false,
+      cdnOptions: [
+        {value: null, text: 'Please select an option'},
+        {value: "LeaseWeb", text: 'LeaseWeb'},
+        {value: "OVH", text: 'OVH'}
+      ],
       defaultQualities: [
         {
-          name: 'SD',
+          name: "SD",
           height: 720,
           width: 480,
           bitrate: 1000
         },
         {
-          name: 'HD',
+          name: "HD",
           height: 1280,
           width: 720,
           bitrate: 3000
         },
         {
-          name: 'Full-HD',
+          name: "Full-HD",
           height: 1920,
           width: 1080,
           bitrate: 5000
@@ -112,11 +145,15 @@ export default {
         qualities: [],
         videoDataConsumptionPerDay: null,
         nbrViewsPerDay: 200000,
-        price : null
+        price: null,
+        cdnUsed: null,
+        videoDetails: [],
+        location: "",
+        storageNeeded: null,
       },
       computed: {
         dataToStore: 0,
-        outputBandwidth: 0 
+        outputBandwidth: 0
       },
       currentCDNInfos: {
         LeaseWeb: {
@@ -127,12 +164,12 @@ export default {
         },
         OVH: {
           bandwidthPerMbps: 0.176,
-          storagePerGB:  50
+          storagePerGB: 50
         }
       },
       ourPricePerMonths: 0,
       estimatedGain: 0
-    }
+    };
   },
   methods: {
     priceComputation: function(evt) {
@@ -149,24 +186,26 @@ export default {
       var meanVideoPerSeconds;
 
       // Storage
-      for (var i=0; i<this.input.nbrVideos; i++) {
-          for (var j=0; j<this.defaultQualities.length; j++) {
-            storage_needed += this.defaultQualities[j].bitrate * meanTimeinSeconds / 8; 
-          }
+      for (var i = 0; i < this.input.nbrVideos; i++) {
+        for (var j = 0; j < this.defaultQualities.length; j++) {
+          storage_needed +=
+            this.defaultQualities[j].bitrate * meanTimeinSeconds / 8;
+        }
       }
 
       // Mean bandwidth per video
-      meanBandwidthPerVideo = this.defaultQualities.reduce((a,b) => {
-        return {bitrate: a.bitrate + b.bitrate};
-      }).bitrate / this.defaultQualities.length;
+      meanBandwidthPerVideo =
+        this.defaultQualities.reduce((a, b) => {
+          return { bitrate: a.bitrate + b.bitrate };
+        }).bitrate / this.defaultQualities.length;
 
       // Mean videos per seconds
-      meanVideoPerSeconds = this.input.nbrViewsPerDay / (60*60*24);
+      meanVideoPerSeconds = this.input.nbrViewsPerDay / (60 * 60 * 24);
 
       //Quantité qui sort du CDN par mois (en Gbps)
       var dataPerSeconds = meanVideoPerSeconds * meanBandwidthPerVideo / 1000; // Mb
       var dataPerMonth = dataPerSeconds * 60 * 60 * 24 * 30 / 1000000 / 8; // TB
-      
+
       // Get current price
       if (this.input.price !== null) {
         currentPrice = this.input.price;
@@ -186,7 +225,12 @@ export default {
       }
 
       //Get our price = Quantité qui sort par mois ramené au prix OVH + Storage
-      ourPrice = Math.ceil(dataPerSeconds * this.currentCDNInfos.OVH.bandwidthPerMbps/44)*44 + 44;
+      ourPrice =
+        Math.ceil(
+          dataPerSeconds * this.currentCDNInfos.OVH.bandwidthPerMbps / 44
+        ) *
+          44 +
+        44;
 
       // Update result
       ourPrice = ourPrice * marginMultiplicator;
@@ -197,12 +241,14 @@ export default {
       this.estimatedGain = this.computeGain(currentPrice, ourPrice);
       this.isResultComputed = true;
     },
-  computeGain: function(currentPrice, ourPrice) {
+    computeGain: function(currentPrice, ourPrice) {
       return Math.round((currentPrice - ourPrice) / currentPrice * 100);
+    },
+    advancedOptions: function() {
+      this.showAdvancedOptions = !this.showAdvancedOptions;
+    }
   }
-
-  }
-}
+};
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
