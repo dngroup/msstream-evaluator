@@ -1,5 +1,6 @@
 <template>
   <div id="app">
+    <Navbar></Navbar>
     <div class="jumbotron" id="jumbotron">
         <div id="particles">
       <h1 class="maintitle">MS-Stream Pricing Estimation Tool</h1>
@@ -13,8 +14,12 @@
 </template>
 
 <script>
+import Navbar from '@/components/Navbar'
 export default {
-  name: "App"
+  name: "App",
+  components: {
+    Navbar
+  }
 };
 </script>
 

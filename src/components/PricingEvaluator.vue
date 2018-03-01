@@ -4,7 +4,15 @@
       <h4>Please provide some informations on your needs</h4>
       <hr color="black">
       <b-form @submit="priceComputation">
-        <b-card>
+        <b-card header="Select your services" border-variant="primary" header-bg-variant="primary" header-text-variant="white" class="card-margin">
+          <b-form-group label="Encoding Service">
+          <b-form-select v-model="encodingOption" :options="encodingOptions" />
+          </b-form-group>
+          <b-form-group label="Streaming servers and hosting service">
+          <b-form-select v-model="hostingOption" :options="hostingOptions" />
+          </b-form-group>
+        </b-card>
+        <b-card header="Parameters" border-variant="primary" header-bg-variant="primary" header-text-variant="white" class="card-margin">
         <b-form-group id="exampleInputGroup1"
                       label="Number of Videos"
                       label-for="exampleInput1">
@@ -45,29 +53,23 @@
           </b-form-input>
         </b-form-group>
         </b-card>
-        <b-card v-show="showAdvancedOptions">
+        <b-card v-show="showAdvancedOptions" header="Advanced parameters" border-variant="warning" header-bg-variant="warning" header-text-variant="black" class="card-margin">
           <b-form-group id="exampleInputGroup3"
-                      label="Video data consumption per day *"
+                      label="Video data consumption in GB per day *"
                       label-for="exampleInput3">
           <b-form-input id="exampleInput3"
                         type="number"
-                        v-model="input.videoDataConsumptionPerDay"
-                        placeholder="Enter video data consumption per day">
+                        v-model="input.videoDataConsumptionPerMonth"
+                        placeholder="Enter video data consumption in GB per month">
           </b-form-input>
           </b-form-group>
           <b-form-group
                       label="CDN currently used *">
           <b-form-select v-model="input.cdnUsed" :options="cdnOptions" />
         </b-form-group>
-                  <b-form-group id="exampleInputGroup7"
-                      label="Location *"
-                      label-for="exampleInput7">
-          <b-form-input id="exampleInput7"
-                        type="text"
-                        v-model="input.location"
-                        placeholder="Enter the country of your system">
-          </b-form-input>
-        </b-form-group>
+          <b-form-group label="Location">
+          <b-form-select v-model="locationOption" :options="locationOptions" />
+          </b-form-group>
                   <b-form-group id="exampleInputGroup8"
                       label="Storage needed in GB *"
                       label-for="exampleInput8">
@@ -79,7 +81,8 @@
         </b-form-group>
         </b-card>
         <b-button type="submit" variant="primary">Submit</b-button>
-        <b-button variant="warning" v-on:click="advancedOptions">Show advanced options</b-button>
+        <b-button variant="warning" v-on:click="advancedOptions" v-show="!showAdvancedOptions">Show advanced parameters</b-button>
+        <b-button variant="warning" v-on:click="advancedOptions" v-show="showAdvancedOptions">Close advanced parameters</b-button>
       </b-form>
       <p style="margin-top: 1vh;font-size: 0.85em;">* Optionnal.</p>
       <p style="margin-top: -13px;font-size: 0.85em;">** If you don't provide a price, it will be estimated using standard CDN pricing, in order to compute an estimated gain.</p>
@@ -91,7 +94,7 @@
       <h4 class="withpadding">Result</h4>
       <hr color="white">
       <div v-show="isResultComputed">
-      <p>New price with MS-Stream: {{ourPricePerMonths}} €/months</p>
+      <p>New price with MS-Stream: {{ourPricePerMonths.total}} €/months</p>
       <p>Estimated gain: {{estimatedGain}} % of your current video streaming cost</p>
       </div>
       </div>
@@ -108,13 +111,38 @@
 </template>
 
 <script>
+import axios from 'axios';
 export default {
   name: "PricingEvaluator",
   data() {
     return {
+      prices: {            
+        playerService: 0,
+        encodingService: {
+            pricePerMinute: 0,
+            rent: 0
+        },
+        hostingService: {
+            priceData: 0,
+            priceStorage: 0
+        }
+      },
+      encodingOption: true,
+      hostingOption: true,
+      locationOption: "France",
+      locationOptions: [
+        {value: "France", text: 'France'},
+      ],
+      encodingOptions: [
+        {value: false, text: 'Host the encoding service on your own platform'},
+        {value: true, text: 'Use the remote encoding service'},
+      ],
+      hostingOptions: [
+        {value: false, text: 'Host the content on your own servers'},
+        {value: true, text: 'Use the hosting service'},
+      ],
       showAdvancedOptions: false,
       cdnOptions: [
-        {value: null, text: 'Please select an option'},
         {value: "LeaseWeb", text: 'LeaseWeb'},
         {value: "OVH", text: 'OVH'}
       ],
@@ -143,10 +171,10 @@ export default {
         nbrVideos: 20000,
         videoMeanTime: 10,
         qualities: [],
-        videoDataConsumptionPerDay: null,
+        videoDataConsumptionPerMonth: null,
         nbrViewsPerDay: 200000,
         price: null,
-        cdnUsed: null,
+        cdnUsed: "LeaseWeb",
         videoDetails: [],
         location: "",
         storageNeeded: null,
@@ -157,6 +185,7 @@ export default {
       },
       currentCDNInfos: {
         LeaseWeb: {
+          storagePerTB: 7.5,
           price1: 49,
           price2: 499,
           price3: 2990,
@@ -164,12 +193,25 @@ export default {
         },
         OVH: {
           bandwidthPerMbps: 0.176,
-          storagePerGB: 50
+          storagePerTB: 7
         }
       },
-      ourPricePerMonths: 0,
+      ourCost: {
+        total: 0,
+        encodingService: 0,
+        hostingService: 0
+      },
+      ourPricePerMonths: {
+        total: 0,
+        playerService: 0,
+        encodingService: 0,
+        hostingService: 0
+      },
       estimatedGain: 0
     };
+  },
+  mounted: function() {
+    this.getPricing();
   },
   methods: {
     priceComputation: function(evt) {
@@ -184,12 +226,20 @@ export default {
       var storage_needed = 0; //kB
       var meanBandwidthPerVideo; //kbps
       var meanVideoPerSeconds;
+      var viewPerMonth = this.input.nbrViewsPerDay * 30;
+      var dataPerSeconds;
+      var dataPerMonth;
+      var minutesToEncode = this.input.videoMeanTime * this.input.nbrVideos;
 
       // Storage
-      for (var i = 0; i < this.input.nbrVideos; i++) {
-        for (var j = 0; j < this.defaultQualities.length; j++) {
-          storage_needed +=
-            this.defaultQualities[j].bitrate * meanTimeinSeconds / 8;
+      if (this.input.storageNeeded !== null && this.input.storageNeeded !== 0) {
+        storage_needed = this.input.storageNeeded / 1000; //TB
+      } else {
+        for (var i = 0; i < this.input.nbrVideos; i++) {
+          for (var j = 0; j < this.defaultQualities.length; j++) {
+            storage_needed +=
+              this.defaultQualities[j].bitrate * meanTimeinSeconds / 1000000000 / 8 ; //TB
+          }
         }
       }
 
@@ -203,14 +253,18 @@ export default {
       meanVideoPerSeconds = this.input.nbrViewsPerDay / (60 * 60 * 24);
 
       //Quantité qui sort du CDN par mois (en Gbps)
-      var dataPerSeconds = meanVideoPerSeconds * meanBandwidthPerVideo / 1000; // Mb
-      var dataPerMonth = dataPerSeconds * 60 * 60 * 24 * 30 / 1000000 / 8; // TB
+      if (this.input.videoDataConsumptionPerMonth !== null && this.input.videoDataConsumptionPerMonth !== 0) {
+        dataPerMonth = this.input.videoDataConsumptionPerDay * 30 / 1000;
+        dataPerSeconds = dataPerMonth * 8 * 1000000 / 30 / 24 / 60 / 60;
+      } else {
+        dataPerSeconds = meanVideoPerSeconds * meanBandwidthPerVideo / 1000; // Mb
+        dataPerMonth = dataPerSeconds * 60 * 60 * 24 * 30 / 1000000 / 8; // TB
+      }
 
       // Get current price
-      if (this.input.price !== null) {
+      if (this.input.price !== null && this.input.price !== 0) {
         currentPrice = this.input.price;
       } else {
-        //TODO : faire des conditions à la con par quantité qui sort
         if (dataPerMonth <= 2) {
           currentPrice = this.currentCDNInfos.LeaseWeb.price1;
         } else if (dataPerMonth <= 25) {
@@ -222,22 +276,20 @@ export default {
         } else {
           currentPrice = this.currentCDNInfos.LeaseWeb.price4 + 1000;
         }
+        var realLeaseWebStorage = (storage_needed - 1  > 0) ? storage_needed - 1 : 0;
+        currentPrice += Math.round(this.currentCDNInfos.LeaseWeb.storagePerTB * storage_needed);
       }
 
       //Get our price = Quantité qui sort par mois ramené au prix OVH + Storage
-      ourPrice =
-        Math.ceil(
+      var serverNeeded = Math.ceil(
           dataPerSeconds * this.currentCDNInfos.OVH.bandwidthPerMbps / 44
-        ) *
-          44 +
-        44;
+        );
+      this.ourCost.hostingService = serverNeeded * 44;
+      var realStorageNeeded = ((storage_needed - serverNeeded) > 0)? storage_needed - serverNeeded : 0;
+      this.ourCost.hostingService += Math.round(this.currentCDNInfos.OVH.storagePerTB * realStorageNeeded);
 
       // Update result
-      ourPrice = ourPrice * marginMultiplicator;
-      if (ourPrice > currentPrice) {
-        ourPrice = currentPrice - 2;
-      }
-      this.ourPricePerMonths = ourPrice;
+      this.ourPricePerMonths.total = this.ourCost.hostingService;
       this.estimatedGain = this.computeGain(currentPrice, ourPrice);
       this.isResultComputed = true;
     },
@@ -246,6 +298,17 @@ export default {
     },
     advancedOptions: function() {
       this.showAdvancedOptions = !this.showAdvancedOptions;
+    },
+    getPricing() {
+       var instance = {
+                    baseURL: 'api/prices',
+                    method: 'get'
+                };
+        axios(instance).then((response) => {
+            this.prices = response.data;
+        }).catch((response) => {
+            console.log(response)
+        });
     }
   }
 };
@@ -267,6 +330,10 @@ export default {
 }
 .botpadding {
   padding-bottom: 15vh;
+}
+
+.card-margin {
+  margin-bottom: 2vh;
 }
 .btn-msstream {
   color: white;
