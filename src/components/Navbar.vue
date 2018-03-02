@@ -7,8 +7,8 @@
   <b-collapse is-nav id="nav_collapse" right>
 
     <b-navbar-nav class="ml-auto">
-      <b-nav-item href="#/" >Home</b-nav-item>
-      <b-nav-item href="#/admin">Admin</b-nav-item>
+      <b-nav-item href="#/" >Estimation</b-nav-item>
+      <b-nav-item href="#/pricing">Pricing</b-nav-item>
     </b-navbar-nav>
   </b-collapse>
 </b-navbar>

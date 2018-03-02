@@ -19,7 +19,7 @@
                         type="password"
                         v-model="form.password"
                         required
-                        placeholder="Enter the passwordt">
+                        placeholder="Enter the password">
           </b-form-input>
           </b-form-group>
         <b-button type="submit" variant="primary">Log In</b-button>

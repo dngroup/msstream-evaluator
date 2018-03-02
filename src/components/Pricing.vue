@@ -7,49 +7,54 @@
                       label-for="inputPlayerService">
           <b-form-input id="inputPlayerService"
                         type="number"
+                        step="0.000001"
                         v-model="services.playerService"
                         required
                         placeholder="Enter the price per view">
           </b-form-input>
         </b-form-group>
         <b-form-group id="EncodingServiceThem"
-                      label="Price of self hosted encoding service"
+                      label="Price of self hosted encoding service (fixed price per month)"
                       label-for="inputEncodingService">
           <b-form-input id="inputEncodingService"
                         type="number"
                         v-model="services.encodingService.rent"
+                        step="0.000001"
                         required
                         placeholder="Enter the price of the Encoding Service rent">
           </b-form-input>
           </b-form-group>
         <b-form-group id="EncodingServiceUs"
-                      label="Price of encoding service"
+                      label="Price of encoding service (price per minute of video to encode)"
                       label-for="inputEncodingService2">
           <b-form-input id="inputEncodingService2"
                         type="number"
+                        step="0.000001"
                         v-model="services.encodingService.pricePerMinute"
                         required
                         placeholder="Enter the price of the Encoding Service">
           </b-form-input>
         </b-form-group>
                 <b-form-group id="hostingService"
-                      label="Hosting Service Output Data"
+                      label="Hosting Service Output Data (price per TB per month)"
                       label-for="inputHosting1">
           <b-form-input id="inputHosting1"
                         type="number"
+                        step="0.000001"
                         v-model="services.hostingService.priceData"
                         required
-                        placeholder="Enter the price of the output data per Gb">
+                        placeholder="Enter the price of the output data per TB">
           </b-form-input>
         </b-form-group>
         <b-form-group id="hostingService2"
-                      label="Hosting Service Storage"
+                      label="Hosting Service Storage (price per TB)"
                       label-for="inputHosting2">
           <b-form-input id="inputHosting2"
                         type="number"
+                        step="0.000001"
                         v-model="services.hostingService.priceStorage"
                         required
-                        placeholder="Enter the price of storage per GB">
+                        placeholder="Enter the price of storage per TB">
           </b-form-input>
         </b-form-group>
         <b-button type="submit" variant="primary">Save</b-button>
@@ -104,7 +109,7 @@ export default {
                     method: 'get'
                 };
         axios(instance).then((response) => {
-            this.prices = response.data;
+            this.services = response.data;
         }).catch((response) => {
             console.log(response)
         });

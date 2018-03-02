@@ -14,13 +14,23 @@
         </b-card>
         <b-card header="Parameters" border-variant="primary" header-bg-variant="primary" header-text-variant="white" class="card-margin">
         <b-form-group id="exampleInputGroup1"
-                      label="Number of Videos"
+                      label="Total number of Videos"
                       label-for="exampleInput1">
           <b-form-input id="exampleInput1"
                         type="number"
                         v-model="input.nbrVideos"
                         required
                         placeholder="Enter the number of videos you want to be able to upload">
+          </b-form-input>
+        </b-form-group>
+        <b-form-group
+                      label="Number of new videos per month"
+                      label-for="exampleInput63">
+          <b-form-input id="exampleInput63"
+                        type="number"
+                        v-model="input.nbrVideosPerMonth"
+                        required
+                        placeholder="Enter the number of new videos that will be uploaded every month">
           </b-form-input>
         </b-form-group>
         <b-form-group id="exampleInputGroup2"
@@ -59,7 +69,7 @@
                       label-for="exampleInput3">
           <b-form-input id="exampleInput3"
                         type="number"
-                        v-model="input.videoDataConsumptionPerMonth"
+                        v-model="input.videoDataConsumptionPerDay"
                         placeholder="Enter video data consumption in GB per month">
           </b-form-input>
           </b-form-group>
@@ -94,8 +104,36 @@
       <h4 class="withpadding">Result</h4>
       <hr color="white">
       <div v-show="isResultComputed">
-      <p>New price with MS-Stream: {{ourPricePerMonths.total}} €/months</p>
-      <p>Estimated gain: {{estimatedGain}} % of your current video streaming cost</p>
+        <table style="width:100%">
+           <tr>
+            <th scope="col">Service</th>
+            <th scope="col">Joada Cost per month</th> 
+            <th scope="col">Client Price per month</th>
+          </tr>
+                
+          <tr>
+            <th scope="row">Player Service</th>
+            <th>{{ourCost.playerService}} €</th> 
+            <th>{{ourPricePerMonths.playerService}} €</th>
+          </tr>
+          <tr>
+            <th scope="row">Encoding Service</th>
+            <th>{{ourCost.encodingService}} €</th> 
+            <th>{{ourPricePerMonths.encodingService}} €</th>
+          </tr>
+          <tr>
+            <th scope="row">Hosting Service</th>
+            <th>{{ourCost.hostingService}} €</th> 
+            <th>{{ourPricePerMonths.hostingService}} €</th>
+          </tr>
+          <tr>
+            <th scope="row">Total</th>
+            <th>{{ourCost.total}} €</th> 
+            <th>{{ourPricePerMonths.total}} €</th>
+          </tr>
+        </table>
+      <p style="margin-top: 3vh;">Estimated money spend on video streaming by the client: <strong>{{currentPrice}} €/months</strong></p>
+      <p>Estimated gain: <strong>{{estimatedGain}} %</strong> of your current video streaming cost</p>
       </div>
       </div>
     </b-container>
@@ -135,16 +173,15 @@ export default {
       ],
       encodingOptions: [
         {value: false, text: 'Host the encoding service on your own platform'},
-        {value: true, text: 'Use the remote encoding service'},
+        {value: true, text: 'Use the Joada remote encoding service'},
       ],
       hostingOptions: [
         {value: false, text: 'Host the content on your own servers'},
-        {value: true, text: 'Use the hosting service'},
+        {value: true, text: 'Use the Joada hosting service'},
       ],
       showAdvancedOptions: false,
       cdnOptions: [
-        {value: "LeaseWeb", text: 'LeaseWeb'},
-        {value: "OVH", text: 'OVH'}
+        {value: "LeaseWeb", text: 'LeaseWeb'}
       ],
       defaultQualities: [
         {
@@ -169,9 +206,10 @@ export default {
       isResultComputed: false,
       input: {
         nbrVideos: 20000,
+        nbrVideosPerMonth: 100,
         videoMeanTime: 10,
         qualities: [],
-        videoDataConsumptionPerMonth: null,
+        videoDataConsumptionPerDay: null,
         nbrViewsPerDay: 200000,
         price: null,
         cdnUsed: "LeaseWeb",
@@ -185,6 +223,7 @@ export default {
       },
       currentCDNInfos: {
         LeaseWeb: {
+          pricePerMinuteOfEncoding: 0.024,
           storagePerTB: 7.5,
           price1: 49,
           price2: 499,
@@ -192,6 +231,7 @@ export default {
           price4: 4500
         },
         OVH: {
+          pricePerMinuteOfEncoding: 0.01,
           bandwidthPerMbps: 0.176,
           storagePerTB: 7
         }
@@ -199,7 +239,8 @@ export default {
       ourCost: {
         total: 0,
         encodingService: 0,
-        hostingService: 0
+        hostingService: 0,
+        playerService: 0
       },
       ourPricePerMonths: {
         total: 0,
@@ -207,7 +248,8 @@ export default {
         encodingService: 0,
         hostingService: 0
       },
-      estimatedGain: 0
+      estimatedGain: 0,
+      currentPrice: 0
     };
   },
   mounted: function() {
@@ -229,7 +271,7 @@ export default {
       var viewPerMonth = this.input.nbrViewsPerDay * 30;
       var dataPerSeconds;
       var dataPerMonth;
-      var minutesToEncode = this.input.videoMeanTime * this.input.nbrVideos;
+      var minutesToEncode = this.input.videoMeanTime * this.input.nbrVideosPerMonth;
 
       // Storage
       if (this.input.storageNeeded !== null && this.input.storageNeeded !== 0) {
@@ -253,7 +295,7 @@ export default {
       meanVideoPerSeconds = this.input.nbrViewsPerDay / (60 * 60 * 24);
 
       //Quantité qui sort du CDN par mois (en Gbps)
-      if (this.input.videoDataConsumptionPerMonth !== null && this.input.videoDataConsumptionPerMonth !== 0) {
+      if (this.input.videoDataConsumptionPerDay !== null && this.input.videoDataConsumptionPerDay !== 0) {
         dataPerMonth = this.input.videoDataConsumptionPerDay * 30 / 1000;
         dataPerSeconds = dataPerMonth * 8 * 1000000 / 30 / 24 / 60 / 60;
       } else {
@@ -278,19 +320,49 @@ export default {
         }
         var realLeaseWebStorage = (storage_needed - 1  > 0) ? storage_needed - 1 : 0;
         currentPrice += Math.round(this.currentCDNInfos.LeaseWeb.storagePerTB * storage_needed);
+        currentPrice += Math.round(this.currentCDNInfos.LeaseWeb.pricePerMinuteOfEncoding * minutesToEncode);
       }
+      this.currentPrice = currentPrice;
 
-      //Get our price = Quantité qui sort par mois ramené au prix OVH + Storage
+      //Get our cost = Quantité qui sort par mois ramené au prix OVH + Storage
       var serverNeeded = Math.ceil(
           dataPerSeconds * this.currentCDNInfos.OVH.bandwidthPerMbps / 44
         );
-      this.ourCost.hostingService = serverNeeded * 44;
-      var realStorageNeeded = ((storage_needed - serverNeeded) > 0)? storage_needed - serverNeeded : 0;
-      this.ourCost.hostingService += Math.round(this.currentCDNInfos.OVH.storagePerTB * realStorageNeeded);
+      if (!this.hostingOption) {
+        this.ourCost.hostingService = 0;
+      } else {
+        this.ourCost.hostingService = serverNeeded * 44;
+        var realStorageNeeded = ((storage_needed - serverNeeded) > 0)? storage_needed - serverNeeded : 0;
+        this.ourCost.hostingService += Math.round(this.currentCDNInfos.OVH.storagePerTB * realStorageNeeded);
+      }
+      if (!this.encodingOption) {
+        this.ourCost.encodingService = 0;
+      } else {
+        this.ourCost.encodingService = Math.round(this.currentCDNInfos.OVH.pricePerMinuteOfEncoding * minutesToEncode);
+      }
 
-      // Update result
-      this.ourPricePerMonths.total = this.ourCost.hostingService;
-      this.estimatedGain = this.computeGain(currentPrice, ourPrice);
+      this.ourCost.playerService = 0;
+
+      this.ourCost.total = this.ourCost.playerService + this.ourCost.encodingService + this.ourCost.hostingService;
+
+      // Update our price
+      if (!this.hostingOption) {
+        this.ourPricePerMonths.hostingService = 0;
+      } else {
+        this.ourPricePerMonths.hostingService = Math.round(this.prices.hostingService.priceData * dataPerMonth + this.prices.hostingService.priceStorage * storage_needed);
+      }
+
+      if (!this.encodingOption) {
+        this.ourPricePerMonths.encodingService = this.prices.encodingService.rent;
+      } else {
+        this.ourPricePerMonths.encodingService = Math.round(this.prices.encodingService.pricePerMinute * minutesToEncode);
+      }
+
+      this.ourPricePerMonths.playerService = Math.round(viewPerMonth * this.prices.playerService);
+
+      this.ourPricePerMonths.total = this.ourPricePerMonths.playerService + this.ourPricePerMonths.encodingService + this.ourPricePerMonths.hostingService;
+
+      this.estimatedGain = this.computeGain(currentPrice, this.ourPricePerMonths.total);
       this.isResultComputed = true;
     },
     computeGain: function(currentPrice, ourPrice) {

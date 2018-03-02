@@ -14,7 +14,7 @@ export default new Router({
       component: PricingEvaluator
     },
     {
-      path: '/admin',
+      path: '/pricing',
       name: 'Pricing',
       component: Pricing
     },
